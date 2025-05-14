@@ -11,7 +11,6 @@ class PolylinesController extends Controller
     {
         $this->polylines = new PolylinesModel();
     }
-
     /**
      * Display a listing of the resource.
      */
@@ -38,6 +37,7 @@ class PolylinesController extends Controller
             'name' => 'required|unique:polylines,name',
             'description' => 'required',
             'geom_polyline' => 'required',
+            'image' => 'nullable|mimes:jpeg,png,jpg,gif,svg|max:1024'
         ],
         [
             'name.required' => 'Name is required',
@@ -46,10 +46,25 @@ class PolylinesController extends Controller
             'geom_polyline.required' => 'Geometry is required',
         ]);
 
+        // make folder
+        if (!is_dir('storage/images')) {
+            mkdir('./storage/images', 0777);
+        }
+
+        // upload image
+        if ($request->hasFile('image')) {
+            $image = $request->file('image');
+            $name_image = time() . "_polyline." . strtolower($image->getClientOriginalExtension());
+            $image->move('storage/images', $name_image);
+        } else {
+            $name_image = null;
+        }
+
         $data = [
             'geom' => $request->geom_polyline,
             'name' => $request->name,
-            'description' => $request->description
+            'description' => $request->description,
+            'image' => $name_image
         ];
 
         // create data
@@ -73,7 +88,12 @@ class PolylinesController extends Controller
      */
     public function edit(string $id)
     {
-        //
+        $data = [
+            'title' => 'Edit Polyline',
+            'id' => $id,
+        ];
+
+        return view('edit_polyline', $data);
     }
 
     /**
@@ -89,6 +109,18 @@ class PolylinesController extends Controller
      */
     public function destroy(string $id)
     {
-        //
+        $image = $this->polylines->find($id)->image;
+        if (!$this->polylines->destroy($id)) {
+            return redirect()->route('map')->with('error', 'Polyline failed to deleted!');
+        }
+        if ($image != null) {
+            if (file_exists('./storage/images/' . $image)) {
+                unlink('./storage/images/' . $image);
+            }
+            return redirect()->route('map')->with('success', 'Polyline has been delete!');
+        }
+        else {
+            return redirect()->route('map')->with('success', 'Polyline has been delete!');
+        }
     }
 }
